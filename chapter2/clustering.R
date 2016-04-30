@@ -4,12 +4,18 @@ library(flexclust)
 
 setwd("/home/vitidn/mydata/repo_git/DataSmart/chapter2/")
 
+num_cluster = 5
+#kmeans or kmedians_cosine
+model_use = "kmeans"
+
 offer_info = read.csv("OfferInformation.csv")
 #exclude "." from the column names
 col_names = colnames(offer_info)
 col_names = sapply(col_names,function(x) gsub("\\.","",x))
 col_names = as.character(col_names)
 colnames(offer_info) = col_names
+#re-order months
+offer_info$Campaign@levels = c("January","February","March","April","May","June","July","August","September","October","November","December")
 
 transaction = read.csv("Transactions.csv")
 col_names = colnames(transaction)
@@ -44,12 +50,30 @@ for(i in 1:dim(customer_data)[1]){
   }
 }
 
-#run k-means on customer_data vector with num_cluster clusters
-num_cluster = 3
-k_model = kmeans(select(customer_data,offer_1:offer_32),num_cluster)
-
+if(model_use == "kmeans"){
+  k_model = kcca(select(customer_data,offer_1:offer_32),k = num_cluster,family = kccaFamily("kmeans"), control = list(initcent="kmeanspp"))
+}else
+{
+  #for k-medians model with cosine-distance
+  #got the original function from kccaFamily("kmeans")
+  cosine_dist_function = function(x,centers){
+    if (ncol(x) != ncol(centers)) 
+      stop(sQuote("x"), " and ", sQuote("centers"), " must have the same number of columns")
+    z <- matrix(0, nrow = nrow(x), ncol = nrow(centers))
+    vector_lengths = sqrt(rowSums(x^2))
+    for (k in 1:nrow(centers)) {
+      dot_product = colSums(t(x) * centers[k,])
+      centroid_length = sqrt(sum(centers[k, ]^2))
+      cosine_sim = dot_product / (centroid_length * vector_lengths)
+      cosine_distances = 1.0 - cosine_sim
+      z[, k] <- replace(cosine_distances, is.nan(cosine_distances),1)
+    }
+    z
+  }
+  k_model = kcca(select(customer_data,offer_1:offer_32),k = num_cluster,family =kccaFamily(dist = cosine_dist_function,cent = function(x){apply(x, 2, median)}) )
+}
 #assign users to their corresponding cluster
-customer_data[["clustering"]] = k_model$cluster
+customer_data[["clustering"]] = k_model@cluster
 
 #retrieve data frame for cluster:i
 focust_cluster <- function(i = 1)
@@ -62,7 +86,7 @@ focust_cluster <- function(i = 1)
 }
 
 #exploratory-analysis for each cluster
-for(i in 1:max(k_model$cluster)){
+for(i in 1:max(k_model@cluster)){
   par(mfrow=c(2,3))
   cluster_data = focust_cluster(i)
   hist(cluster_data$Discount,main = paste("cluster:",i,sep= " "))
