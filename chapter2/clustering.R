@@ -5,8 +5,8 @@ library(flexclust)
 setwd("/home/vitidn/mydata/repo_git/DataSmart/chapter2/")
 
 num_cluster = 5
-#kmeans or kmedians_cosine
-model_use = "kmeans"
+#select either kmeans or kmedians_cosine(the book suggests that kmedians_cosine is better)
+model_use = "kmedians_cosine"
 
 offer_info = read.csv("OfferInformation.csv")
 #exclude "." from the column names
@@ -81,7 +81,7 @@ focust_cluster <- function(i = 1)
   focus_customers = filter(customer_data, clustering == i) %>% select(customer_name)
   temp_table = inner_join(focus_customers,transaction,c("customer_name" = "CustomerLastName"))
   temp_table = inner_join(offer_info,temp_table,c("Offer" = "Offer"))
-  temp_table = distinct(select(temp_table,Offer:PastPeak)) %>% arrange(Offer,PastPeak)
+  temp_table = (select(temp_table,Offer:PastPeak)) %>% arrange(Offer,PastPeak)
   return(temp_table)
 }
 
